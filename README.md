@@ -11,16 +11,26 @@ Companion to [devops-platform](https://github.com/mohd-21/devops-platform), whos
 
 ## How it fits together
 
-```
- New incident ──► Business Rule (before insert) ──► IncidentTriage Script Include
-                                                      ├─ classify -> assignment group
-                                                      ├─ impact/urgency matrix + critical wording -> priority
-                                                      └─ duplicate check -> work note
+```mermaid
+flowchart TB
+    subgraph SN["ServiceNow instance"]
+        inc["New incident"] --> br["Business Rule, before insert"]
+        br --> si["IncidentTriage Script Include"]
+        si --> grp["Assign group"]
+        si --> pri["Raise priority"]
+        si --> dup["Flag duplicate"]
+        job["Scheduled Job, every 30 min"] --> esc["StaleIncidentEscalator"]
+        esc --> note["Work note on stale P1 and P2"]
+        chg[("change_request table")]
+    end
 
- Scheduled Job (every 30 min) ──► StaleIncidentEscalator ──► work note on stale P1/P2
+    subgraph GH["GitHub Actions"]
+        direction LR
+        open["Open change"] --> dep["Deploy"] --> close["Close change as success or failed"]
+    end
 
- GitHub Actions ──► servicenow_change.py create ──► deploy ──► servicenow_change.py close
-                         (Table API: change_request)             (success / failed)
+    open -->|"REST POST, Table API"| chg
+    close -->|"REST PATCH, Table API"| chg
 ```
 
 ## Repository layout
