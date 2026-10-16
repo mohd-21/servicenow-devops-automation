@@ -1,0 +1,74 @@
+name: Change-managed deploy (reusable)
+
+# Wraps any deployment in a ServiceNow change request:
+#   open change  ->  run your deploy  ->  close change as successful/failed
+#
+# Call it from another workflow:
+#   jobs:
+#     release:
+#       uses: mohd-21/servicenow-devops-automation/.github/workflows/change-managed-deploy.yml@main
+#       with:
+#         summary: "Deploy checkout ${{ github.sha }}"
+#       secrets: inherit
+
+on:
+  workflow_call:
+    inputs:
+      summary:
+        description: Short description for the change request
+        required: true
+        type: string
+      description:
+        description: Longer description
+        required: false
+        type: string
+        default: ""
+    secrets:
+      SN_INSTANCE:
+        required: true
+      SN_USER:
+        required: true
+      SN_PASSWORD:
+        required: true
+
+jobs:
+  open-change:
+    runs-on: ubuntu-latest
+    outputs:
+      sys_id: ${{ steps.create.outputs.change_sys_id }}
+      number: ${{ steps.create.outputs.change_number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: mohd-21/servicenow-devops-automation
+      - id: create
+        env:
+          SN_INSTANCE: ${{ secrets.SN_INSTANCE }}
+          SN_USER: ${{ secrets.SN_USER }}
+          SN_PASSWORD: ${{ secrets.SN_PASSWORD }}
+          SUMMARY: ${{ inputs.summary }}
+          DESCRIPTION: ${{ inputs.description }}
+        run: python3 pipeline/servicenow_change.py create --summary "$SUMMARY" --description "$DESCRIPTION"
+
+  deploy:
+    needs: open-change
+    runs-on: ubuntu-latest
+    steps:
+      - name: Replace this step with your real deployment
+        run: echo "Deploying under change ${{ needs.open-change.outputs.number }}"
+
+  close-change:
+    needs: [open-change, deploy]
+    if: always() && needs.open-change.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: mohd-21/servicenow-devops-automation
+      - env:
+          SN_INSTANCE: ${{ secrets.SN_INSTANCE }}
+          SN_USER: ${{ secrets.SN_USER }}
+          SN_PASSWORD: ${{ secrets.SN_PASSWORD }}
+          SYS_ID: ${{ needs.open-change.outputs.sys_id }}
+          RESULT: ${{ needs.deploy.result == 'success' && 'success' || 'failed' }}
+        run: python3 pipeline/servicenow_change.py close --sys-id "$SYS_ID" --result "$RESULT"

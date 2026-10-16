@@ -1,0 +1,11 @@
+{
+  "name": "servicenow-devops-automation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ServiceNow incident automation and a CI/CD to change-management integration",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\"",
+    "test:py": "python3 -m unittest discover -s tests -p 'test_*.py'"
+  },
+  "license": "MIT"
+}
